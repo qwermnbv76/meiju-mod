@@ -1,6 +1,6 @@
-﻿<p align="center">
+<p align="center">
   <img src="https://img.shields.io/badge/version-2.9.2-%23996669?style=flat-square" />
-  <img src="https://img.shields.io/badge/game-妹居物语%20Demo-%23996669?style=flat-square" />
+  <img src="https://img.shields.io/badge/game-%E5%A6%B9%E5%B1%85%E7%89%A9%E8%AF%AD%20Demo-%23996669?style=flat-square" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" />
 </p>
 
@@ -12,21 +12,21 @@
 
 ## 快速开始
 
-将 install-hooks.js 和 meiju-mod/ 复制到游戏 esources\ 目录，启动游戏即生效。
+将 `install-hooks.js` 和 `meiju-mod/` 复制到游戏 `resources` 目录，启动游戏即生效。
 
-`
-Steam → 右键「妹居物语」→ 管理 → 浏览本地文件 → resources\
+```
+Steam → 右键「妹居物语」→ 管理 → 浏览本地文件 → resources/
 
-resources\
+resources/
 ├── app.asar
 ├── install-hooks.js          ← 放在这里
-└── meiju-mod\
+└── meiju-mod/
     ├── mod.js
     ├── mod.css
     └── mod-config.json
-`
+```
 
-卸载：删除上述两个文件/文件夹即可恢复原版。
+卸载：删除 `install-hooks.js` 和 `meiju-mod/` 即可恢复原版。
 
 ---
 
@@ -58,7 +58,7 @@ resources\
 
 支持任意 OpenAI 兼容服务商：
 
-OpenAI DeepSeek Groq OpenRouter SiliconFlow 自定义
+`OpenAI` `DeepSeek` `Groq` `OpenRouter` `SiliconFlow` `自定义`
 
 ---
 
@@ -74,37 +74,37 @@ OpenAI DeepSeek Groq OpenRouter SiliconFlow 自定义
 
 鼠标靠近或拖动桌宠窗口时显示：
 
-`
+```
 [🤖]  [💬]  [🎙]   [↔]  [✕]
  ①     ②     ③     ④    ⑤
 
 ① 全模态AI语音    ② 独立聊天（模组）    ③ RTC语音（模组）
 ④ 大小切换        ⑤ 关闭
-`
+```
 
 ---
 
 ## 文件结构
 
-`
-install-hooks.js           Electron 注入钩子
+```
+install-hooks.js              Electron 注入钩子
 meiju-mod/
-├── mod.js                 模组主体（所有补丁逻辑）
-├── mod.css                样式
-└── mod-config.json        默认配置模板
-`
+├── mod.js                    模组主体（所有补丁逻辑）
+├── mod.css                   样式
+└── mod-config.json           默认配置模板
+```
 
 ---
 
 ## 常见问题
 
-**Q: 模组不生效？**
-确认 install-hooks.js 和 meiju-mod/ 都在 esources\ 根目录下。
+**Q: 模组不生效？**  
+确认 `install-hooks.js` 和 `meiju-mod/` 都在 `resources` 根目录下。
 
-**Q: 搜题/聊天用哪个 API？**
+**Q: 搜题/聊天用哪个 API？**  
 搜题走模组的「搜题/场景 API」、桌宠搭话走「桌宠聊天 API」、原版聊天走云端大模型设置，三者独立。
 
-**Q: 怎么更新配置？**
+**Q: 怎么更新配置？**  
 所有配置实时生效，保存在浏览器 localStorage 中，无需重启。
 
 ---
