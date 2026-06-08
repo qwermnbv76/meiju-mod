@@ -1,0 +1,18 @@
+﻿# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.zip
+*.7z
+node_modules/
+
+# Game files (do not commit)
+app.asar
+*.asar

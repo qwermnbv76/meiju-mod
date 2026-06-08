@@ -1,0 +1,26 @@
+﻿{
+    "petApiConfig":  {
+                         "baseurl":  "",
+                         "modelname":  "",
+                         "apiKey":  ""
+                     },
+    "apiConfig":  {
+                      "baseurl":  "",
+                      "modelname":  "",
+                      "apiKey":  ""
+                  },
+    "enabled":  true,
+    "useLocalAIForOCR":  true,
+    "version":  "2.9.5",
+    "skipLogin":  true,
+    "useLocalAIForDateScene":  true,
+    "voiceConfig":  {
+                        "appId":  "",
+                        "rtcProxyUrl":  "",
+                        "enabled":  false
+                    },
+    "rtcConfig":  {
+                      "appId":  "",
+                      "appKey":  ""
+                  }
+}
