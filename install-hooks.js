@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 const fs = require('fs');
 const path = require('path');
@@ -97,7 +97,7 @@ function installFsAndModuleHooks(cryptoModule, appDir) {
       return null;
     }
 
-    // 只处理相对/绝对路径模块，包名解析仍交给 Node 原生逻辑。
+    // ֻ�������/����·��ģ�飬���������Խ��� Node ԭ���߼���
     const isRelative = request.startsWith('./') || request.startsWith('../');
     const isAbsolute = path.isAbsolute(request);
     if (!isRelative && !isAbsolute) {
@@ -337,9 +337,58 @@ function runMainFromMemory(cryptoModule, appDir, mainRelativePath) {
 
 
 // ============================================================
-//  [MeijuMod] 外部注入 - hook BrowserWindow 向渲染进程注入模组
+//  [MeijuMod] �ⲿע�� - hook BrowserWindow ����Ⱦ����ע��ģ��
 // ============================================================
+
+// ===== Hook BrowserWindow to inject KBM preload =====
+function hookBrowserWindow(payloadRoot) {
+  try {
+    const { BrowserWindow } = require("electron");
+    const OrigBrowserWindow = BrowserWindow;
+    const kbmPreloadPath = path.join(payloadRoot, "meiju-mod", "kbm-preload.js");
+    
+    if (!fs.existsSync(kbmPreloadPath)) {
+      console.log("[MeijuMod] kbm-preload.js not found at " + kbmPreloadPath);
+      return;
+    }
+    
+    // Override BrowserWindow constructor
+    const BW = function(options) {
+      options = options || {};
+      options.webPreferences = options.webPreferences || {};
+      
+      // Save original preload and use ours as primary
+      var origPreload = options.webPreferences.preload;
+      if (origPreload && !options.webPreferences._meijuHooked) {
+        options.webPreferences._meijuHooked = true;
+        // Pass original preload path to our preload via additionalArguments
+        if (!options.webPreferences.additionalArguments) {
+          options.webPreferences.additionalArguments = [];
+        }
+        options.webPreferences.additionalArguments.push("--meiju-orig-preload=" + origPreload);
+      }
+      // Set our preload (will chain to original internally)
+      options.webPreferences.preload = kbmPreloadPath;
+      
+      return new OrigBrowserWindow(options);
+    };
+    
+    // Copy prototype and static methods
+    BW.prototype = OrigBrowserWindow.prototype;
+    Object.keys(OrigBrowserWindow).forEach(function(k) {
+      try { BW[k] = OrigBrowserWindow[k]; } catch(e) {}
+    });
+    
+    // Replace in module cache so game picks it up
+    require("electron").BrowserWindow = BW;
+    console.log("[MeijuMod] BrowserWindow hook installed, preload: " + kbmPreloadPath);
+  } catch(e) {
+    console.warn("[MeijuMod] BrowserWindow hook failed:", e.message);
+  }
+}
 function installModInjection(payloadRoot) {
+  hookBrowserWindow(payloadRoot);
+
   const { BrowserWindow } = require("electron");
   const fs = require("fs");
   const path = require("path");
@@ -349,7 +398,7 @@ function installModInjection(payloadRoot) {
   const modCssPath = path.join(modDir, "mod.css");
 
   if (!fs.existsSync(modJsPath)) {
-    console.log("[MeijuMod] mod.js 未找到，跳过注入。路径:", modJsPath);
+    console.log("[MeijuMod] mod.js δ�ҵ�������ע�롣·��:", modJsPath);
     return;
   }
 
@@ -357,7 +406,7 @@ function installModInjection(payloadRoot) {
   let modCss = "";
   try { modCss = fs.readFileSync(modCssPath, "utf8"); } catch (_) {}
 
-  console.log("[MeijuMod] 模组已加载，将在每个窗口中注入");
+  console.log("[MeijuMod] ģ���Ѽ��أ�����ÿ��������ע��");
 
   // Hook webContents creation: inject mod after page loads
   const origEmit = BrowserWindow.prototype._init ? null : null;
@@ -377,23 +426,23 @@ function installModInjection(payloadRoot) {
           // Inject CSS
           if (modCss) {
             wc.insertCSS(modCss).catch(e =>
-              console.warn("[MeijuMod] CSS 注入失败:", e.message)
+              console.warn("[MeijuMod] CSS ע��ʧ��:", e.message)
             );
           }
           // Inject JS
           wc.executeJavaScript(modJs).then(() => {
-            console.log("[MeijuMod] ✅ 模组 JS 已注入窗口");
+            console.log("[MeijuMod] ? ģ�� JS ��ע�봰��");
           }).catch(e =>
-            console.warn("[MeijuMod] JS 注入失败:", e.message)
+            console.warn("[MeijuMod] JS ע��ʧ��:", e.message)
           );
         } catch (e) {
-          console.warn("[MeijuMod] 注入异常:", e.message);
+          console.warn("[MeijuMod] ע���쳣:", e.message);
         }
       });
     });
-    console.log("[MeijuMod] web-contents-created 钩子已注册");
+    console.log("[MeijuMod] web-contents-created ������ע��");
   } catch (e) {
-    console.warn("[MeijuMod] 注册注入钩子失败:", e.message);
+    console.warn("[MeijuMod] ע��ע�빳��ʧ��:", e.message);
   }
 }
 
@@ -480,23 +529,51 @@ function triggerWinDetect() {
 function setupKbmIpc() {
   try {
     var { ipcMain } = require("electron");
-    ipcMain.handle("mod:kbm", async function(event, cmd) {
-      return new Promise(function(resolve) {
-        if (!_kbmProc || !_kbmReady) { resolve({ ok: false, error: "KBM not ready" }); return; }
-        var line = JSON.stringify(cmd) + "\n";
-        var timedOut = false;
-        var timer = setTimeout(function() { timedOut = true; resolve({ ok: false, error: "timeout" }); }, 5000);
-        var handler = function(data) {
-          if (timedOut) return;
-          clearTimeout(timer);
-          try { resolve(JSON.parse(data.toString().trim())); }
-          catch(e) { resolve({ ok: false, error: "parse" }); }
-        };
-        _kbmProc.stdout.once("data", handler);
-        _kbmProc.stdin.write(line);
-      });
+    var rl2 = require("readline");
+    
+    if (!_kbmProc || !_kbmProc.stdout) { console.warn("[MeijuMod] KBM proc not ready for IPC"); return; }
+    var cmdReader = rl2.createInterface({ input: _kbmProc.stdout });
+    
+    cmdReader.on("line", function(line) {
+      try {
+        var result = JSON.parse(line);
+        var keys = Object.keys(pending);
+        if (keys.length > 0) {
+          var id = keys[0];
+          var cb = pending[id];
+          delete pending[id];
+          clearTimeout(cb.timer);
+          cb.resolve(result);
+        }
+      } catch(e) {}
     });
-    console.log("[MeijuMod] KBM IPC registered");
+    
+    ipcMain.on("mod:kbm-req", function(event, data) {
+      if (!_kbmProc || !_kbmReady) {
+        if (data.id) event.sender.send("mod:kbm-result", { id: data.id, error: "KBM not ready" });
+        return;
+      }
+      
+      var cmd = data.cmd;
+      var line = JSON.stringify(cmd) + "\n";
+      
+      if (data.id) {
+        var timer = setTimeout(function() {
+          if (pending[data.id]) {
+            var cb = pending[data.id];
+            delete pending[data.id];
+            cb.resolve({ ok: false, error: "timeout", action: cmd.action });
+          }
+        }, 5000);
+        pending[data.id] = { resolve: function(r) {
+          event.sender.send("mod:kbm-result", { id: data.id, result: r });
+        }, timer: timer };
+      }
+      
+      try { _kbmProc.stdin.write(line); } catch(e) {}
+    });
+    
+    console.log("[MeijuMod] KBM IPC registered (preload bridge)");
   } catch(e) {
     console.warn("[MeijuMod] KBM IPC setup failed:", e.message);
   }

@@ -1,7 +1,7 @@
-﻿// MeijuMod v2.9.7 - KBM control + Alt fix + recognition toast
+// MeijuMod v2.9.8 - KBM control + Alt fix + preload bridge + recognition toast
 (function () {
     "use strict";
-    var V = "2.9.7";
+    var V = "2.9.8";
     var C = { pri: "#996669", bg: "rgba(255,255,255,0.96)", txt: "rgba(68,68,68,0.9)", mute: "rgba(68,68,68,0.6)", bd: "rgba(68,68,68,0.12)" };
 
     var style = document.createElement("style");
@@ -43,14 +43,13 @@
 
     // Alt key detection handled by install-hooks.js globalShortcut -> IPC
 
-    // ===== KBM (Keyboard-Mouse) IPC =====
+    // ===== KBM (Keyboard-Mouse) IPC via preload contextBridge =====
     var kbmApi = null;
     try {
-        var ipc = require("electron").ipcRenderer;
-        if (ipc && ipc.invoke) {
-            kbmApi = function(cmd) { return ipc.invoke("mod:kbm", cmd); };
+        if (window.meijuKbm && window.meijuKbm.invoke) {
+            kbmApi = function(cmd) { return window.meijuKbm.invoke(cmd); };
         }
-    } catch(e) {}
+    } catch(e) { console.warn("[MeijuMod] KBM bridge init failed"); }
     
     // Expose kbmApi globally for panel use
     window.meijuModKbm = kbmApi;
