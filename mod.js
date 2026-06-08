@@ -1,7 +1,7 @@
-﻿// MeijuMod v2.9.5 - RTC voice + pet freq (auto/Alt-only/off) + Alt key instant trigger
+﻿// MeijuMod v2.9.6 - global Alt shortcut via install-hooks IPC
 (function () {
     "use strict";
-    var V = "2.9.5";
+    var V = "2.9.6";
     var C = { pri: "#996669", bg: "rgba(255,255,255,0.96)", txt: "rgba(68,68,68,0.9)", mute: "rgba(68,68,68,0.6)", bd: "rgba(68,68,68,0.12)" };
 
     var style = document.createElement("style");
@@ -41,20 +41,7 @@
     if (!M.on) return;
     console.log("[MeijuMod] v" + V + " start");
 
-    // Alt key trigger for instant window detection
-    var _altLast = 0;
-    document.addEventListener("keydown", function(e) {
-        if (e.code !== "AltLeft" || e.repeat) return;
-        if (!M.pet || !M.altTrigger) return; var freq = (loadCfg().petFreq) || 10; if (freq === 0) return;
-        var now = Date.now();
-        if (now - _altLast < 2000) return;
-        _altLast = now;
-        var dps = window.desktopPetSystem;
-        if (dps && dps.isActive && dps.detectActiveWindow) {
-            dps.detectActiveWindow();
-            console.log("[MeijuMod] Alt-triggered window detection");
-        }
-    });
+    // Alt key detection handled by install-hooks.js globalShortcut -> IPC
 
     var K_OCR = "meiju_mod_api_config";
     var K_PET = "meiju_mod_pet_api_config";

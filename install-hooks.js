@@ -339,17 +339,7 @@ function runMainFromMemory(cryptoModule, appDir, mainRelativePath) {
 // ============================================================
 //  [MeijuMod] 外部注入 - hook BrowserWindow 向渲染进程注入模组
 // ============================================================
-var _modMain = null;
-var _modMainPort = 0;
-
 function installModInjection(payloadRoot) {
-    try {
-        var modMainPath = path.join(payloadRoot, "meiju-mod", "mod-main.js");
-        if (fs.existsSync(modMainPath)) {
-            _modMain = require(modMainPath);
-            console.log("[MeijuMod] 电脑助手模块已加载");
-        }
-    } catch(e) { console.warn("[MeijuMod] 电脑助手模块加载失败:", e.message); }
   const { BrowserWindow } = require("electron");
   const fs = require("fs");
   const path = require("path");
@@ -389,14 +379,7 @@ function installModInjection(payloadRoot) {
             );
           }
           // Inject JS
-          var modJsWithPort = modJs;
-          if (_modMainPort > 0) {
-            modJsWithPort = "window.__MEIJU_MOD_PORT__=" + _modMainPort + ";" + modJs;
-            console.log("[MeijuMod] 电脑助手端口 " + _modMainPort + " 已内联注入");
-          } else {
-            console.warn("[MeijuMod] 电脑助手端口未就绪，将轮询等待");
-          }
-          wc.executeJavaScript(modJsWithPort).then(() => {
+          wc.executeJavaScript(modJs).then(() => {
             console.log("[MeijuMod] ✅ 模组 JS 已注入窗口");
           }).catch(e =>
             console.warn("[MeijuMod] JS 注入失败:", e.message)
@@ -416,6 +399,25 @@ function bootstrapAll(cryptoModule, appDir, mainRelativePath, payloadRoot) {
   if (!cryptoModule || typeof cryptoModule.bootstrap !== 'function') {
     throw new Error('invalid crypto module');
   }
+  // ===== Alt key global shortcut for instant window detection =====
+  try {
+    const { globalShortcut } = require("electron");
+    let _altDebounce = 0;
+    const regOk = globalShortcut.register("Alt", () => {
+      const now = Date.now();
+      if (now - _altDebounce < 2000) return;
+      _altDebounce = now;
+      const { BrowserWindow } = require("electron");
+      BrowserWindow.getAllWindows().forEach(function(win) {
+        if (win.isDestroyed()) return;
+        win.webContents.executeJavaScript('(function(){var dps=window.desktopPetSystem;if(!dps||!dps.isActive||!dps.detectActiveWindow)return;var M;try{var r=localStorage.getItem("meiju_mod_config");M=r?JSON.parse(r):null}catch(e){return}if(!M||!M.pet||!M.altTrigger||M.petFreq===0)return;dps.detectActiveWindow();})()').catch(function(){});
+      });
+    });
+    console.log("[MeijuMod] Alt globalShortcut registered:", regOk);
+  } catch(e) {
+    console.warn("[MeijuMod] Alt globalShortcut failed:", e.message);
+  }
+
   if (!appDir || typeof appDir !== 'string') {
     throw new Error('invalid appDir');
   }
@@ -425,14 +427,6 @@ function bootstrapAll(cryptoModule, appDir, mainRelativePath, payloadRoot) {
   installProtocolHook(cryptoModule, appDir);
 
   installModInjection(appDir);
-
-  if (_modMain && typeof _modMain.startServer === "function") {
-_modMain.startServer().then(function(port) {_modMainPort = port;console.log("[MeijuMod] 电脑助手服务器已启动，端口:", port);try{var bw = require("electron").BrowserWindow;bw.getAllWindows().forEach(function(win){try{win.webContents.executeJavaScript("window.__MEIJU_MOD_PORT__="+port+";").catch(function(){});}catch(_){}});}catch(_){}
-      _modMainPort = port;
-    }).catch(function(e) {
-      console.warn("[MeijuMod] 电脑助手服务器启动失败:", e.message);
-    });
-  }
   runMainFromMemory(cryptoModule, appDir, mainRelativePath || 'main.js');
 }
 
@@ -442,10 +436,3 @@ module.exports = {
   installProtocolHook,
   runMainFromMemory,
 };
-
-
-
-
-
-
-

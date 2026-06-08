@@ -11,7 +11,7 @@
                   },
     "enabled":  true,
     "useLocalAIForOCR":  true,
-    "version":  "2.9.5",
+    "version":  "2.9.6",
     "skipLogin":  true,
     "useLocalAIForDateScene":  true,
     "voiceConfig":  {
