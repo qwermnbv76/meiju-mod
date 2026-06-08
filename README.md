@@ -1,12 +1,12 @@
 ﻿<p align="center">
   <img src="https://img.shields.io/badge/version-2.9.5-996669?style=flat-square" alt="version">
-  <img src="https://img.shields.io/badge/game-MeijuStory-ff69b4?style=flat-square" alt="game">
+  <img src="https://img.shields.io/badge/game-MeijuStorydemo-ff69b4?style=flat-square" alt="game">
   <img src="https://img.shields.io/badge/platform-Steam-1b2838?style=flat-square&logo=steam" alt="steam">
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="license">
 </p>
 
 <h1 align="center">🎀 MeijuMod</h1>
-<p align="center"><b>妹居物语</b> · 第三方自由模组</p>
+<p align="center"><b>妹居物语</b> · 第三方模组</p>
 
 ---
 
@@ -121,7 +121,6 @@ meiju-mod/
 
 ### v2.9.3
 - 🐛 修复 fetchModels URL 构建不一致
-- 🐛 修复 injectPetApiToManager 类型守卫
 - 🐛 修复 panelTimer getComputedStyle
 - 🎙️ RTC hook 注入正确属性 + 面板增加 apiKey/model 字段
 
