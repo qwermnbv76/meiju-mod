@@ -369,6 +369,8 @@ function installModInjection(payloadRoot) {
   // Use the app-level event (more reliable)
   try {
     const { app } = require("electron");
+    process.on("exit", function() { stopKbmService(); });
+    app.on("will-quit", function() { stopKbmService(); });
     app.on("web-contents-created", (event, wc) => {
       wc.on("did-finish-load", () => {
         try {
@@ -399,24 +401,7 @@ function bootstrapAll(cryptoModule, appDir, mainRelativePath, payloadRoot) {
   if (!cryptoModule || typeof cryptoModule.bootstrap !== 'function') {
     throw new Error('invalid crypto module');
   }
-  // ===== Alt key global shortcut for instant window detection =====
-  try {
-    const { globalShortcut } = require("electron");
-    let _altDebounce = 0;
-    const regOk = globalShortcut.register("Alt", () => {
-      const now = Date.now();
-      if (now - _altDebounce < 2000) return;
-      _altDebounce = now;
-      const { BrowserWindow } = require("electron");
-      BrowserWindow.getAllWindows().forEach(function(win) {
-        if (win.isDestroyed()) return;
-        win.webContents.executeJavaScript('(function(){var dps=window.desktopPetSystem;if(!dps||!dps.isActive||!dps.detectActiveWindow)return;var M;try{var r=localStorage.getItem("meiju_mod_config");M=r?JSON.parse(r):null}catch(e){return}if(!M||!M.pet||!M.altTrigger||M.petFreq===0)return;dps.detectActiveWindow();})()').catch(function(){});
-      });
-    });
-    console.log("[MeijuMod] Alt globalShortcut registered:", regOk);
-  } catch(e) {
-    console.warn("[MeijuMod] Alt globalShortcut failed:", e.message);
-  }
+
 
   if (!appDir || typeof appDir !== 'string') {
     throw new Error('invalid appDir');
@@ -427,8 +412,101 @@ function bootstrapAll(cryptoModule, appDir, mainRelativePath, payloadRoot) {
   installProtocolHook(cryptoModule, appDir);
 
   installModInjection(appDir);
+  startKbmService();
+  setupKbmIpc();
   runMainFromMemory(cryptoModule, appDir, mainRelativePath || 'main.js');
 }
+
+
+
+
+// ===== KBM (Keyboard-Mouse) service =====
+var _kbmProc = null;
+var _kbmWatch = null;
+var _kbmDebounce = 0;
+var _kbmReady = false;
+
+function startKbmService() {
+  try {
+    var resourceDir = __dirname + "\meiju-mod";
+    var exePath = resourceDir + "\kbm-helper.exe";
+    
+    if (!fs.existsSync(exePath)) {
+      console.log("[MeijuMod] kbm-helper.exe not found at " + exePath);
+      return;
+    }
+    
+    var cp = require("child_process");
+    var rl = require("readline");
+    
+    _kbmProc = cp.spawn(exePath, [], { stdio: ["pipe", "pipe", "pipe"] });
+    _kbmProc.on("error", function(e) { console.warn("[MeijuMod] KBM error:", e.message); });
+    _kbmProc.on("close", function() { _kbmReady = false; });
+    
+    _kbmWatch = cp.spawn(exePath, ["--watch"], { stdio: ["pipe", "pipe", "pipe"] });
+    _kbmWatch.on("error", function(e) { console.warn("[MeijuMod] KBM watch error:", e.message); });
+    
+    // Read Alt key events from watch process
+    var reader = rl.createInterface({ input: _kbmWatch.stdout });
+    reader.on("line", function(line) {
+      try {
+        var ev = JSON.parse(line);
+        if (ev.e === "k" && ev.v === 164 && ev.d) {
+          var now = Date.now();
+          if (now - _kbmDebounce < 2000) return;
+          _kbmDebounce = now;
+          triggerWinDetect();
+        }
+      } catch(e) {}
+    });
+    
+    _kbmReady = true;
+    console.log("[MeijuMod] KBM service started");
+  } catch(e) {
+    console.warn("[MeijuMod] KBM service failed:", e.message);
+  }
+}
+
+function triggerWinDetect() {
+  try {
+    var { BrowserWindow } = require("electron");
+    BrowserWindow.getAllWindows().forEach(function(win) {
+      if (win.isDestroyed()) return;
+      win.webContents.executeJavaScript('(function(){try{var M=JSON.parse(localStorage.getItem("meiju_mod_config")||"{}");if(!M.pet||!M.altTrigger)return;var dps=window.desktopPetSystem;if(dps&&dps.isActive&&dps.detectActiveWindow)dps.detectActiveWindow();var e=document.getElementById("mjt");if(!e){e=document.createElement("div");e.id="mjt";e.style.cssText="position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:999999;background:rgba(153,102,105,0.93);color:#fff;padding:9px 22px;border-radius:10px;font-size:14px;box-shadow:0 3px 14px rgba(0,0,0,0.25);transition:opacity .35s,transform .35s;pointer-events:none;font-family:\"Microsoft YaHei\",sans-serif;white-space:nowrap";document.body.appendChild(e)}e.textContent="\u25b6 \u6b63\u5728\u8bc6\u522b...";e.style.opacity="1";e.style.transform="translateX(-50%) translateY(0)";clearTimeout(e._t);e._t=setTimeout(function(){e.style.opacity="0";e.style.transform="translateX(-50%) translateY(-12px)"},2500)}catch(ex){})()').catch(function(){});
+    });
+  } catch(e) {}
+}
+
+function setupKbmIpc() {
+  try {
+    var { ipcMain } = require("electron");
+    ipcMain.handle("mod:kbm", async function(event, cmd) {
+      return new Promise(function(resolve) {
+        if (!_kbmProc || !_kbmReady) { resolve({ ok: false, error: "KBM not ready" }); return; }
+        var line = JSON.stringify(cmd) + "\n";
+        var timedOut = false;
+        var timer = setTimeout(function() { timedOut = true; resolve({ ok: false, error: "timeout" }); }, 5000);
+        var handler = function(data) {
+          if (timedOut) return;
+          clearTimeout(timer);
+          try { resolve(JSON.parse(data.toString().trim())); }
+          catch(e) { resolve({ ok: false, error: "parse" }); }
+        };
+        _kbmProc.stdout.once("data", handler);
+        _kbmProc.stdin.write(line);
+      });
+    });
+    console.log("[MeijuMod] KBM IPC registered");
+  } catch(e) {
+    console.warn("[MeijuMod] KBM IPC setup failed:", e.message);
+  }
+}
+
+function stopKbmService() {
+  if (_kbmProc) { try { _kbmProc.kill(); } catch(e) {} _kbmProc = null; }
+  if (_kbmWatch) { try { _kbmWatch.kill(); } catch(e) {} _kbmWatch = null; }
+}
+
 
 module.exports = {
   bootstrapAll,

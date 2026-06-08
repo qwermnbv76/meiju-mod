@@ -1,7 +1,7 @@
-﻿// MeijuMod v2.9.6 - global Alt shortcut via install-hooks IPC
+﻿// MeijuMod v2.9.7 - KBM control + Alt fix + recognition toast
 (function () {
     "use strict";
-    var V = "2.9.6";
+    var V = "2.9.7";
     var C = { pri: "#996669", bg: "rgba(255,255,255,0.96)", txt: "rgba(68,68,68,0.9)", mute: "rgba(68,68,68,0.6)", bd: "rgba(68,68,68,0.12)" };
 
     var style = document.createElement("style");
@@ -42,6 +42,21 @@
     console.log("[MeijuMod] v" + V + " start");
 
     // Alt key detection handled by install-hooks.js globalShortcut -> IPC
+
+    // ===== KBM (Keyboard-Mouse) IPC =====
+    var kbmApi = null;
+    try {
+        var ipc = require("electron").ipcRenderer;
+        if (ipc && ipc.invoke) {
+            kbmApi = function(cmd) { return ipc.invoke("mod:kbm", cmd); };
+        }
+    } catch(e) {}
+    
+    // Expose kbmApi globally for panel use
+    window.meijuModKbm = kbmApi;
+    
+    // KBM helper function called from panel
+    window.sleep = function(ms) { return new Promise(function(r) { setTimeout(r, ms); }); };
 
     var K_OCR = "meiju_mod_api_config";
     var K_PET = "meiju_mod_pet_api_config";
@@ -411,6 +426,45 @@
         buildApiSection(d, "mod-api", "\u641c\u9898/\u573a\u666f API\u914d\u7f6e", "\u6559\u5e08\u670d\u641c\u9898 + \u5b9e\u666f\u7ea6\u4f1a\u573a\u666f\u8bc6\u522b", api);
         buildApiSection(d, "mod-pet-api", "\u684c\u5ba0\u804a\u5929 API\u914d\u7f6e", "\u684c\u9762\u5ba0\u7269\u4e3b\u52a8\u642d\u8bdd + \u804a\u5929\u7a97\u53e3\u5bf9\u8bdd", petApi);
         buildRtcSection(d);
+        if (kbmApi) {
+            var kbmDiv = document.createElement("div"); kbmDiv.className = "mod-divider"; d.appendChild(kbmDiv);
+            var kbmH = document.createElement("div"); kbmH.style.cssText = "margin-bottom:10px;";
+            kbmH.innerHTML = '<h4 style="margin:0;font-size:14px;color:' + C.pri + ';font-weight:600;">\u952e\u9f20\u63a7\u5236</h4><p style="margin:4px 0 0 0;font-size:12px;color:' + C.mute + ';">\u6a21\u62df\u9f20\u6807\u952e\u76d8\u64cd\u4f5c</p>';  // kbm header
+            d.appendChild(kbmH);
+            // Action row: text input + send button
+            var kbmRow = document.createElement("div"); kbmRow.style.cssText = "display:flex;gap:6px;margin-bottom:8px;";
+            var kbmInp = document.createElement("input"); kbmInp.id = "mod-kbm-text"; kbmInp.className = "mod-api-input"; kbmInp.placeholder = "\u8f93\u5165\u6587\u672c\u53d1\u9001...";
+            kbmInp.style.cssText = "flex:1;" + kbmInp.style.cssText;
+            var kbmSend = document.createElement("button"); kbmSend.className = "mod-api-btn"; kbmSend.textContent = "\u53d1\u9001";
+            kbmSend.onclick = function() {
+                var txt = kbmInp.value;
+                if (txt) { kbmApi({action:"type",text:txt}); kbmInp.value = ""; }
+            };
+            kbmRow.appendChild(kbmInp); kbmRow.appendChild(kbmSend); d.appendChild(kbmRow);
+            // Quick action buttons
+            var kbmBtns = document.createElement("div"); kbmBtns.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;";
+            var acts = [["\u5de6\u952e",0],["\u53f3\u952e",1],["\u4e2d\u952e",2],["\u6eda\u8f6e\u4e0a",3],["\u6eda\u8f6e\u4e0b",4],["\u79fb\u52a8\u5230\u4e2d\u5fc3",5]];
+            for (var ai = 0; ai < acts.length; ai++) {
+                (function(label, idx) {
+                    var btn = document.createElement("button");
+                    btn.className = "mod-api-btn secondary"; btn.textContent = label;
+                    btn.style.cssText = "font-size:12px;padding:5px 12px;" + btn.style.cssText;
+                    btn.onclick = function() {
+                        if (idx === 0) { kbmApi({action:"mouse_click",button:"left",down:1}); setTimeout(function(){ kbmApi({action:"mouse_click",button:"left",down:0}); }, 50); }
+                        else if (idx === 1) { kbmApi({action:"mouse_click",button:"right",down:1}); setTimeout(function(){ kbmApi({action:"mouse_click",button:"right",down:0}); }, 50); }
+                        else if (idx === 2) { kbmApi({action:"mouse_click",button:"middle",down:1}); setTimeout(function(){ kbmApi({action:"mouse_click",button:"middle",down:0}); }, 50); }
+                        else if (idx === 3) { kbmApi({action:"mouse_scroll",delta:120}); }
+                        else if (idx === 4) { kbmApi({action:"mouse_scroll",delta:-120}); }
+                        else if (idx === 5) { kbmApi({action:"mouse_move",x:960,y:540}); }
+                    };
+                    kbmBtns.appendChild(btn);
+                })(acts[ai][0], acts[ai][1]);
+            }
+            d.appendChild(kbmBtns);
+            // Status
+            var kbmStatus = document.createElement("div"); kbmStatus.id = "mod-kbm-status"; kbmStatus.className = "mod-api-status";
+            d.appendChild(kbmStatus);
+        }
         var ftr = document.createElement("div"); ftr.style.cssText = "margin-top:14px;padding-top:12px;border-top:1px solid " + C.bd + ";";
         ftr.innerHTML = "<p style=\"font-size:12px;color:" + C.mute + ";margin:4px 0;line-height:1.5;\">\u5404API\u72ec\u7acb\u914d\u7f6e | \u6559\u5e08\u670d\u5df2\u89e3\u9501 | \u914d\u7f6e\u4fdd\u5b58\u5728\u672c\u5730</p>"; d.appendChild(ftr);
         setTimeout(function() {
